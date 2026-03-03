@@ -97,6 +97,20 @@ export default class Application {
     resize() {
         this.camera.resize();
         this.renderer.resize();
+
+        const shouldPauseForMonitor =
+            this.monitorPerfPaused &&
+            this.camera.currentKeyframe === CameraKey.MONITOR &&
+            !this.camera.targetKeyframe &&
+            !this.camera.freeCam;
+
+        // If we pause the main loop while in the monitor, a resize can leave the
+        // last rendered frame/DOM transforms out of date. Force a single refresh.
+        if (shouldPauseForMonitor) {
+            this.camera.update();
+            this.world.update();
+            this.renderer.update();
+        }
     }
 
     update() {
