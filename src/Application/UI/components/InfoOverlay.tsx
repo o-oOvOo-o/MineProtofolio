@@ -1,25 +1,43 @@
 import React, { useEffect, useRef, useState } from 'react';
 import FreeCamToggle from './FreeCamToggle';
 import MuteToggle from './MuteToggle';
+import LanguageToggle from './LanguageToggle';
+import { getCopy, type Locale, useLocale } from '../i18n';
 
 interface InfoOverlayProps {
     visible: boolean;
 }
 
-const NAME_TEXT = 'Henry Heffernan';
-const TITLE_TEXT = 'Software Engineer';
 const MULTIPLIER = 1;
 
 const InfoOverlay: React.FC<InfoOverlayProps> = ({ visible }) => {
+    const locale = useLocale();
+    const copy = getCopy(locale);
+    const typedLocaleRef = useRef<Locale | null>(null);
     const visRef = useRef(visible);
     const [nameText, setNameText] = useState('');
     const [titleText, setTitleText] = useState('');
-    const [time, setTime] = useState(new Date().toLocaleTimeString());
+    const [taglineText, setTaglineText] = useState('');
+    const timeLocale = locale === 'zh' ? 'zh-CN' : 'en-US';
+    const [time, setTime] = useState(() =>
+        new Date().toLocaleTimeString(timeLocale)
+    );
     const timeRef = useRef(time);
     const [timeText, setTimeText] = useState('');
     const [textDone, setTextDone] = useState(false);
     const [volumeVisible, setVolumeVisible] = useState(false);
     const [freeCamVisible, setFreeCamVisible] = useState(false);
+    const typingTimeoutsRef = useRef<number[]>([]);
+
+    const clearTypingTimeouts = () => {
+        typingTimeoutsRef.current.forEach((id) => clearTimeout(id));
+        typingTimeoutsRef.current = [];
+    };
+
+    const setTrackedTimeout = (fn: () => void, delayMs: number) => {
+        const id = window.setTimeout(fn, delayMs);
+        typingTimeoutsRef.current.push(id);
+    };
 
     const typeText = (
         i: number,
@@ -33,7 +51,7 @@ const InfoOverlay: React.FC<InfoOverlayProps> = ({ visible }) => {
             text = refOverride.current;
         }
         if (i < text.length) {
-            setTimeout(() => {
+            setTrackedTimeout(() => {
                 if (visRef.current === true)
                     window.postMessage(
                         { type: 'keydown', key: `_AUTO_${text[i]}` },
@@ -56,32 +74,54 @@ const InfoOverlay: React.FC<InfoOverlayProps> = ({ visible }) => {
     };
 
     useEffect(() => {
-        if (visible && nameText == '') {
-            setTimeout(() => {
-                typeText(0, '', NAME_TEXT, setNameText, () => {
-                    typeText(0, '', TITLE_TEXT, setTitleText, () => {
-                        typeText(
-                            0,
-                            '',
-                            time,
-                            setTimeText,
-                            () => {
-                                setTextDone(true);
-                            },
-                            timeRef
-                        );
-                    });
-                });
-            }, 400);
-        }
         visRef.current = visible;
-    }, [visible]);
+        if (!visible) return;
+
+        if (typedLocaleRef.current === locale && nameText !== '') return;
+
+        clearTypingTimeouts();
+        typedLocaleRef.current = locale;
+
+        setNameText('');
+        setTitleText('');
+        setTaglineText('');
+        setTimeText('');
+        setTextDone(false);
+        setVolumeVisible(false);
+        setFreeCamVisible(false);
+
+        setTrackedTimeout(() => {
+            typeText(0, '', copy.profile.name, setNameText, () => {
+                typeText(0, '', copy.profile.title, setTitleText, () => {
+                    typeText(
+                        0,
+                        '',
+                        copy.profile.tagline,
+                        setTaglineText,
+                        () => {
+                            typeText(
+                                0,
+                                '',
+                                time,
+                                setTimeText,
+                                () => {
+                                    setTextDone(true);
+                                },
+                                timeRef
+                            );
+                        }
+                    );
+                });
+            });
+        }, 400);
+        visRef.current = visible;
+    }, [visible, locale]);
 
     useEffect(() => {
         if (textDone) {
-            setTimeout(() => {
+            setTrackedTimeout(() => {
                 setVolumeVisible(true);
-                setTimeout(() => {
+                setTrackedTimeout(() => {
                     setFreeCamVisible(true);
                 }, 250);
             }, 250);
@@ -94,10 +134,10 @@ const InfoOverlay: React.FC<InfoOverlayProps> = ({ visible }) => {
 
     useEffect(() => {
         const interval = setInterval(() => {
-            setTime(new Date().toLocaleTimeString());
+            setTime(new Date().toLocaleTimeString(timeLocale));
         }, 1000);
         return () => clearInterval(interval);
-    }, []);
+    }, [timeLocale]);
 
     useEffect(() => {
         timeRef.current = time;
@@ -114,6 +154,11 @@ const InfoOverlay: React.FC<InfoOverlayProps> = ({ visible }) => {
             {titleText !== '' && (
                 <div style={styles.container}>
                     <p>{titleText}</p>
+                </div>
+            )}
+            {taglineText !== '' && (
+                <div style={styles.container}>
+                    <p>{taglineText}</p>
                 </div>
             )}
             {timeText !== '' && (
@@ -135,6 +180,11 @@ const InfoOverlay: React.FC<InfoOverlayProps> = ({ visible }) => {
                     {freeCamVisible && (
                         <div style={styles.lastRowChild}>
                             <FreeCamToggle />
+                        </div>
+                    )}
+                    {textDone && (
+                        <div style={styles.lastRowChild}>
+                            <LanguageToggle />
                         </div>
                     )}
                 </div>

@@ -1,9 +1,25 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import eventBus from '../EventBus';
+import LanguageToggle from './LanguageToggle';
+import { getCopy, useLocale } from '../i18n';
 
 type LoadingProps = {};
 
+type LoadedResource = {
+    sourceName: string;
+    progress: number;
+};
+
 const LoadingScreen: React.FC<LoadingProps> = () => {
+    const locale = useLocale();
+    const copy = getCopy(locale);
+    const currentYear = useMemo(() => new Date().getFullYear(), []);
+    const showcaseName = useMemo(() => {
+        return locale === 'zh'
+            ? `${copy.profile.name} 作品集展示`
+            : `${copy.profile.name} Portfolio Showcase`;
+    }, [locale, copy.profile.name]);
+
     const [progress, setProgress] = useState(0);
     const [toLoad, setToLoad] = useState(0);
     const [loaded, setLoaded] = useState(0);
@@ -18,18 +34,21 @@ const LoadingScreen: React.FC<LoadingProps> = () => {
     const [doneLoading, setDoneLoading] = useState(false);
     const [webGLError, setWebGLError] = useState(false);
     const [counter, setCounter] = useState(0);
-    const [resources] = useState<string[]>([]);
+    const [resources, setResources] = useState<LoadedResource[]>([]);
     const [mobileWarning, setMobileWarning] = useState(window.innerWidth < 768);
 
-    const onResize = () => {
+    const onResize = useCallback(() => {
         if (window.innerWidth < 768) {
             setMobileWarning(true);
         } else {
             setMobileWarning(false);
         }
-    };
+    }, []);
 
-    window.addEventListener('resize', onResize);
+    useEffect(() => {
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+    }, [onResize]);
 
     useEffect(() => {
         const urlParams = new URLSearchParams(window.location.search);
@@ -47,14 +66,14 @@ const LoadingScreen: React.FC<LoadingProps> = () => {
             setProgress(data.progress);
             setToLoad(data.toLoad);
             setLoaded(data.loaded);
-            resources.push(
-                `Loaded ${data.sourceName}${getSpace(
-                    data.sourceName
-                )} ... ${Math.round(data.progress * 100)}%`
-            );
-            if (resources.length > 8) {
-                resources.shift();
-            }
+            setResources((prev) => {
+                const next = [
+                    ...prev,
+                    { sourceName: data.sourceName, progress: data.progress },
+                ];
+                if (next.length > 8) next.shift();
+                return next;
+            });
         });
     }, []);
 
@@ -142,6 +161,9 @@ const LoadingScreen: React.FC<LoadingProps> = () => {
                         opacity: loadingTextOpacity,
                     })}
                 >
+                    <div style={styles.languageToggle}>
+                        <LanguageToggle />
+                    </div>
                     <div
                         style={styles.header}
                         className="loading-screen-header"
@@ -149,55 +171,66 @@ const LoadingScreen: React.FC<LoadingProps> = () => {
                         <div style={styles.logoContainer}>
                             <div>
                                 <p style={styles.green}>
-                                    <b>Heffernan,</b>{' '}
+                                    <b>{copy.loading.vendorLine1}</b>{' '}
                                 </p>
                                 <p style={styles.green}>
-                                    <b>Henry Inc.</b>
+                                    <b>{copy.loading.vendorLine2}</b>
                                 </p>
                             </div>
                         </div>
                         <div style={styles.headerInfo}>
-                            <p>Released: 01/13/2000</p>
-                            <p>HHBIOS (C)2000 Heffernan Henry Inc.,</p>
+                            <p>{copy.loading.released}</p>
+                            <p>{copy.loading.biosLine(currentYear)}</p>
                         </div>
                     </div>
                     <div style={styles.body} className="loading-screen-body">
-                        <p>HSP S13 2000-2022 Special UC131S</p>
+                        <p>{copy.loading.modelLine}</p>
                         <div style={styles.spacer} />
                         {showBiosInfo && (
                             <>
-                                <p>HSP Showcase(tm) XX 113</p>
-                                <p>Checking RAM : {14000} OK</p>
+                                <p>{copy.loading.showcaseLine}</p>
+                                <p>{copy.loading.checkingRamLine}</p>
                                 <div style={styles.spacer} />
                                 <div style={styles.spacer} />
                                 {showLoadingResources ? (
                                     progress == 1 ? (
-                                        <p>FINISHED LOADING RESOURCES</p>
+                                        <p>
+                                            {copy.loading
+                                                .finishedLoadingResources}
+                                        </p>
                                     ) : (
                                         <p className="loading">
-                                            LOADING RESOURCES ({loaded}/
-                                            {toLoad === 0 ? '-' : toLoad})
+                                            {copy.loading.loadingResources(
+                                                loaded,
+                                                toLoad === 0 ? '-' : toLoad
+                                            )}
                                         </p>
                                     )
                                 ) : (
-                                    <p className="loading">WAIT</p>
+                                    <p className="loading">
+                                        {copy.loading.wait}
+                                    </p>
                                 )}
                             </>
                         )}
                         <div style={styles.spacer} />
                         <div style={styles.resourcesLoadingList}>
-                            {resources.map((sourceName) => (
-                                <p key={sourceName}>{sourceName}</p>
+                            {resources.map((r, idx) => (
+                                <p
+                                    key={`${r.sourceName}-${idx}`}
+                                >{`${copy.loading.loadedResourcePrefix} ${
+                                    r.sourceName
+                                }${getSpace(r.sourceName)} ... ${Math.round(
+                                    r.progress * 100
+                                )}%`}</p>
                             ))}
                         </div>
                         <div style={styles.spacer} />
                         {showLoadingResources && doneLoading && (
                             <p>
-                                All Content Loaded, launching{' '}
-                                <b style={styles.green}>
-                                    'Henry Heffernan Portfolio Showcase'
-                                </b>{' '}
-                                V1.0
+                                {copy.loading.allContentLoadedPrefix}{' '}
+                                <b style={styles.green}>'{showcaseName}'</b>{' '}
+                                {copy.loading.allContentLoadedSuffix}
                             </p>
                         )}
                         <div style={styles.spacer} />
@@ -207,10 +240,7 @@ const LoadingScreen: React.FC<LoadingProps> = () => {
                         style={styles.footer}
                         className="loading-screen-footer"
                     >
-                        <p>
-                            Press <b>DEL</b> to enter SETUP , <b>ESC</b> to skip
-                            memory test
-                        </p>
+                        <p>{copy.loading.pressDelEsc}</p>
                         <p>{getCurrentDate()}</p>
                     </div>
                 </div>
@@ -227,23 +257,23 @@ const LoadingScreen: React.FC<LoadingProps> = () => {
                     <p>But do enjoy what I have done so far :)</p>
                     <div style={styles.spacer} />
                     <div style={styles.spacer} /> */}
-                    <p>Henry Heffernan Portfolio Showcase 2022</p>
+                    <p>{copy.loading.startPopupTitle(currentYear, showcaseName)}</p>
                     {mobileWarning && (
                         <>
                             <br />
                             <b>
                                 <p style={styles.warning}>
-                                    WARNING: This experience is best viewed on
+                                    {copy.loading.mobileWarningLine1}
                                 </p>
                                 <p style={styles.warning}>
-                                    a desktop or laptop computer.
+                                    {copy.loading.mobileWarningLine2}
                                 </p>
                             </b>
                             <br />
                         </>
                     )}
                     <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-                        <p>Click start to begin{'\xa0'}</p>
+                        <p>{copy.loading.clickStartToBegin}{'\xa0'}</p>
                         <span className="blinking-cursor" />
                     </div>
                     <div
@@ -255,7 +285,7 @@ const LoadingScreen: React.FC<LoadingProps> = () => {
                         }}
                     >
                         <div className="bios-start-button" onClick={start}>
-                            <p>START</p>
+                            <p>{copy.loading.startButton}</p>
                         </div>
                     </div>
                 </div>
@@ -268,17 +298,16 @@ const LoadingScreen: React.FC<LoadingProps> = () => {
                 >
                     <div style={styles.startPopup}>
                         <p>
-                            <b style={{ color: 'red' }}>CRITICAL ERROR:</b> No
-                            WebGL Detected
+                            <b style={{ color: 'red' }}>
+                                {copy.loading.criticalError}
+                            </b>{' '}
+                            {copy.loading.noWebGlDetected}
                         </p>
                         <div style={styles.spacer} />
                         <div style={styles.spacer} />
 
-                        <p>WebGL is required to run this site.</p>
-                        <p>
-                            Please enable it or switch to a browser which
-                            supports WebGL
-                        </p>
+                        <p>{copy.loading.webglRequiredLine1}</p>
+                        <p>{copy.loading.webglRequiredLine2}</p>
                     </div>
                 </div>
             )}
@@ -292,6 +321,7 @@ const styles: StyleSheetCSS = {
         width: '100%',
         height: '100%',
         display: 'flex',
+        position: 'relative',
         transition: 'opacity 0.2s, transform 0.2s',
         MozTransition: 'opacity 0.2s, transform 0.2s',
         WebkitTransition: 'opacity 0.2s, transform 0.2s',
@@ -317,6 +347,12 @@ const styles: StyleSheetCSS = {
         boxSizing: 'border-box',
         display: 'flex',
         flexDirection: 'row',
+    },
+    languageToggle: {
+        position: 'absolute',
+        top: 16,
+        right: 16,
+        zIndex: 10,
     },
     popupContainer: {
         position: 'absolute',

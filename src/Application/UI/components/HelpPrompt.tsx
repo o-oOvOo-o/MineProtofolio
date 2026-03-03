@@ -2,26 +2,40 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 // import eventBus from '../EventBus';
 import { motion } from 'framer-motion';
 import UIEventBus from '../EventBus';
-
-const HELP_TEXT = 'Click anywhere to begin';
+import { getCopy, useLocale } from '../i18n';
 
 type HelpPromptProps = {};
 
 const HelpPrompt: React.FC<HelpPromptProps> = () => {
+    const locale = useLocale();
+    const copy = getCopy(locale);
     const [helpText, setHelpText] = useState('');
     const [visible, setVisible] = useState(true);
     const visRef = useRef(visible);
+    const targetTextRef = useRef(copy.help.clickAnywhereToBegin);
+    const typingTimeoutsRef = useRef<number[]>([]);
+
+    const clearTypingTimeouts = () => {
+        typingTimeoutsRef.current.forEach((id) => clearTimeout(id));
+        typingTimeoutsRef.current = [];
+    };
+
+    const setTrackedTimeout = (fn: () => void, delayMs: number) => {
+        const id = window.setTimeout(fn, delayMs);
+        typingTimeoutsRef.current.push(id);
+    };
 
     const typeHelpText = (i: number, curText: string) => {
-        if (i < HELP_TEXT.length && visRef.current) {
-            setTimeout(() => {
+        const text = targetTextRef.current;
+        if (i < text.length && visRef.current) {
+            setTrackedTimeout(() => {
                 window.postMessage(
-                    { type: 'keydown', key: `_AUTO_${HELP_TEXT[i]}` },
+                    { type: 'keydown', key: `_AUTO_${text[i]}` },
                     '*'
                 );
 
-                setHelpText(curText + HELP_TEXT[i]);
-                typeHelpText(i + 1, curText + HELP_TEXT[i]);
+                setHelpText(curText + text[i]);
+                typeHelpText(i + 1, curText + text[i]);
             }, Math.random() * 120 + 50);
         }
     };
@@ -29,9 +43,6 @@ const HelpPrompt: React.FC<HelpPromptProps> = () => {
     // make a document listener to listen to clicks
 
     useEffect(() => {
-        setTimeout(() => {
-            typeHelpText(0, '');
-        }, 500);
         document.addEventListener('mousedown', () => {
             setVisible(false);
         });
@@ -39,6 +50,16 @@ const HelpPrompt: React.FC<HelpPromptProps> = () => {
             setVisible(false);
         });
     }, []);
+
+    useEffect(() => {
+        targetTextRef.current = copy.help.clickAnywhereToBegin;
+        if (!visible) return;
+        clearTypingTimeouts();
+        setHelpText('');
+        setTrackedTimeout(() => {
+            typeHelpText(0, '');
+        }, 500);
+    }, [copy.help.clickAnywhereToBegin, visible]);
 
     useEffect(() => {
         if (visible == false) {
