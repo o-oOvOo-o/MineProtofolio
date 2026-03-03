@@ -243,7 +243,9 @@ export function toggleLocale() {
 
 export function subscribeLocale(listener: (locale: Locale) => void) {
     listeners.add(listener);
-    return () => listeners.delete(listener);
+    return () => {
+        listeners.delete(listener);
+    };
 }
 
 export function useLocale() {
