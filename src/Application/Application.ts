@@ -3,9 +3,10 @@ import * as THREE from 'three';
 import Debug from './Utils/Debug';
 import Sizes from './Utils/Sizes';
 import Time from './Utils/Time';
-import Camera from './Camera/Camera';
+import Camera, { CameraKey } from './Camera/Camera';
 import Renderer from './Renderer';
 import Mouse from './Utils/Mouse';
+import UIEventBus from './UI/EventBus';
 
 //@ts-ignore
 import World from './World/World';
@@ -35,6 +36,7 @@ export default class Application {
     loading: Loading;
     ui: UI;
     stats: Stats | undefined;
+    monitorPerfPaused: boolean;
 
     constructor() {
         // Singleton
@@ -64,6 +66,14 @@ export default class Application {
         this.world = new World();
 
         this.ui = new UI();
+        this.monitorPerfPaused = false;
+
+        UIEventBus.on('enterMonitor', () => {
+            this.monitorPerfPaused = true;
+        });
+        UIEventBus.on('leftMonitor', () => {
+            this.monitorPerfPaused = false;
+        });
 
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.has('debug')) {
@@ -91,6 +101,18 @@ export default class Application {
 
     update() {
         if (this.stats) this.stats.begin();
+
+        const shouldPauseForMonitor =
+            this.monitorPerfPaused &&
+            this.camera.currentKeyframe === CameraKey.MONITOR &&
+            !this.camera.targetKeyframe &&
+            !this.camera.freeCam;
+
+        if (shouldPauseForMonitor) {
+            if (this.stats) this.stats.end();
+            return;
+        }
+
         this.camera.update();
         this.world.update();
         this.renderer.update();
