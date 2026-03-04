@@ -82,7 +82,7 @@ const sources: Resource[] = [
     {
         name: 'startup',
         type: 'audio',
-        path: 'audio/startup/startup.mp3',
+        path: 'audio/startup/startup.mp3?v=20260304-piano',
     },
     {
         name: 'office',
